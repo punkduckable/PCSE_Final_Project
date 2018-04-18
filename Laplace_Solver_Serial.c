@@ -8,7 +8,7 @@
 #define Y_Min -1.
 #define Y_Max 1.
 #define PI 3.14159265358979323846
-#define N_Div 20
+#define N_Div 40
 #define Max_Change_Threshold (.0001)
 const unsigned int N_Rows = N_Div+2;
 const unsigned int N_Cols = N_Div+2;
@@ -229,7 +229,7 @@ void Save_To_File(double *U_k, unsigned int iterations) {
 			
 			// If we're on the last colon, we want to print a semicolon and a new line.
 			// otherwise we want to print a comma and space
-			if(j == N_Cols-1) { fprintf(Results,";\n"); }
+			if(j == N_Cols-1) { fprintf(Results,"\n"); }
 			else { fprintf(Results, ", "); }
 		}
 	}
