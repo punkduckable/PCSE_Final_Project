@@ -22,7 +22,7 @@ void Boundary_Conditions(double *U_0);				// Used to set BC's
 	double Bottom_BC(double y);						// BC function for bottom boundary
 void Update(double *U_k, double *U_kp1);			// Used to make U^(k+1) from U^(k)
 double Maximum_Change(double *U_k, double *U_kp1);	// Calculates average change at meshpoints
-void Print_Matrix(double *Mat, unsigned int num_rows, unsigned int num_cols);	// Print a matrix. For testing purporses
+void Save_To_File(double *U_k,unsigned int iterations);		// Saves the result in a file.
 
 int main() {
 	///////////////////////////////////////////////////////////////////////////
@@ -62,9 +62,12 @@ int main() {
 		iterations++;
 	} // while(Max_Change > Max_Change_Threshold) {
 	
-	// Print results
-	printf("The stopping condition was acheived after %d iterations.",iterations);
-	Print_Matrix(U_k,N_Rows,N_Cols);
+	// Update once more, We do this so that u_kp1 from the final iteration
+	// is moved to the U_k matrix.
+	Update(U_k, U_kp1);
+
+	// Save results
+	Save_To_File(U_k, iterations);
 
 	return 0;
 } // int main()
@@ -210,13 +213,25 @@ double Maximum_Change(double *U_k, double *U_kp1) {
 	return Max_Change;
 } // double Avg_Cange(double *U_k, double *U_kp1) {
 
-void Print_Matrix(double *Mat, unsigned int num_rows, unsigned int num_cols) {
+void Save_To_File(double *U_k, unsigned int iterations) {
+	// This function saves the results to a matrix.
+
+	// First, open our new file
+	FILE* Results = fopen("Results.txt","w");
+
+	// Begin printing to the matrix
+	fprintf(Results,"The stopping condition was acheived after %d iterations.\n\n",iterations);
+
 	unsigned int i,j;
-	printf("\n\n");
-	for(i = 0; i < num_rows; i++) {
-		for(j = 0; j < num_cols; j++) {
-			printf("%.2f, ",Mat[i*num_cols + j]);
+	for(i = 0; i < N_Rows; i++) {
+		for(j = 0; j < N_Cols; j++) {
+			fprintf(Results,"%.4f",U_k[i*N_Cols + j]);
+			
+			// If we're on the last colon, we want to print a semicolon and a new line.
+			// otherwise we want to print a comma and space
+			if(j == N_Cols-1) { fprintf(Results,";\n"); }
+			else { fprintf(Results, ", "); }
 		}
-		printf("\n");
 	}
+	fclose(Results);
 } // void Print_Matrix(double *Mat, unsigned int num_rows, unsigned int num_cols) {
