@@ -1,6 +1,7 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "math.h"
+#include "time.h"
 
 // Paramaters
 #define X_Min -1.
@@ -8,7 +9,7 @@
 #define Y_Min -1.
 #define Y_Max 1.
 #define PI 3.14159265358979323846
-#define N_Mesh 40
+#define N_Mesh 200
 #define Change_Threshold (.001/(double)N_Mesh)
 const unsigned int N_Rows = N_Mesh+2;
 const unsigned int N_Cols = N_Mesh+2;
@@ -22,9 +23,14 @@ void Boundary_Conditions(double *U_0);				// Used to set BC's
 	double Bottom_BC(double y);						// BC function for bottom boundary
 void Update(double *U_k, double *U_kp1);			// Used to make U^(k+1) from U^(k)
 double Maximum_Change(double *U_k, double *U_kp1);	// Calculates average change at meshpoints
-void Save_To_File(double *U_k,unsigned int iterations);		// Saves the result in a file.
-
+void Save_To_File(double *U_k);						// Saves the result in a file.
+	
 int main() {
+	///////////////////////////////////////////////////////////////////////////
+	// Set up timing variables
+	clock_t timer;
+	float t_Alloc, t_IC, t_BC, t_Iter, t_Save;
+
 	///////////////////////////////////////////////////////////////////////////
 	// Allocation and initlaization: 	
 
@@ -35,14 +41,26 @@ int main() {
 	// to make access more intuitive. 
 	double *U_k, *U_kp1;
 
+	timer = clock();
+
 	U_k = (double *)malloc(sizeof(double)*(N_Mesh+2)*(N_Mesh+2));
 	U_kp1 = (double *)malloc(sizeof(double)*(N_Mesh+2)*(N_Mesh+2));
+
+	t_Alloc = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
+
 
 	// Set up initial conditions, boundary conditions. Note that we run the
 	// Initial conditions on U_kp1 because Update first moves the interior
 	// elements of U_kp1 to U_k (see update function)
+
+	timer = clock();
 	Initial_Conditions(U_kp1); 
+	t_IC = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
+
+	timer = clock();
 	Boundary_Conditions(U_k);
+	t_BC = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
+
 
 	///////////////////////////////////////////////////////////////////////////
 	// Update loop:
@@ -50,6 +68,8 @@ int main() {
 	// Update matrix until Maximum change falls below threshold
 	double Max_Change = 1;
 	int iterations = 0;
+
+	timer = clock();
 
 	while(Max_Change > Change_Threshold) {
 		// Perform next iteration
@@ -66,8 +86,25 @@ int main() {
 	// is moved to the U_k matrix.
 	Update(U_k, U_kp1);
 
+	t_Iter = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
+
 	// Save results
-	Save_To_File(U_k, iterations);
+	timer = clock();
+	Save_To_File(U_k);
+	t_Save = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
+
+
+	// Print timing results
+	printf("\t\t -- Paramaters --\n\n");
+	printf("Number of meshpoints         ::\t %d\n",N_Mesh);
+	printf("Change threshold             ::\t %f\n",Change_Threshold);
+	printf("Number of iterations needed  ::\t %d\n",iterations);
+	printf("\n\t\t -- Timing data --\n\n");
+	printf("Time to alloc U_k,U_kp1      ::\t %.2e (s)\n",t_Alloc);
+	printf("Time to set IC's             ::\t %.2e (s)\n",t_IC);
+	printf("Time to set BC's             ::\t %.2e (s)\n",t_BC);
+	printf("Time for iterations          ::\t %.2e (s)\n",t_Iter);
+	printf("Time to save to file         ::\t %.2e (s)\n",t_Save);
 
 	return 0;
 } // int main()
@@ -213,14 +250,11 @@ double Maximum_Change(double *U_k, double *U_kp1) {
 	return Max_Change;
 } // double Avg_Cange(double *U_k, double *U_kp1) {
 
-void Save_To_File(double *U_k, unsigned int iterations) {
+void Save_To_File(double *U_k) {
 	// This function saves the results to a matrix.
 
 	// First, open our new file
 	FILE* Results = fopen("Results.txt","w");
-
-	// Begin printing to the matrix
-	fprintf(Results,"The stopping condition was acheived after %d iterations.\n\n",iterations);
 
 	unsigned int i,j;
 	for(i = 0; i < N_Rows; i++) {
