@@ -5,11 +5,18 @@
 // Paramaters
 #define X_Min -1.
 #define X_Max 1.
-#define Y_Min -1.
-#define Y_Max 1.
+#define Y_Min -3.
+#define Y_Max 3.
 #define PI 3.14159265358979323846
-#define N_Mesh 40
+#define N_Mesh 10
 #define Change_Threshold (.001/(double)N_Mesh)
+
+// Determine dx,dy (spacing between successive gridpoints in the x and y directions
+// Note that if there are D_Div grid points in a given direction, then there are
+// N_Mesh-1 jumps (of size dx) that have to be made to get from X_Min to X_Max
+#define dx ((X_Max - X_Min)/((double)N_Mesh-1.))
+#define dy ((Y_Max - Y_Min)/((double)N_Mesh-1.))
+
 const unsigned int N_Rows = N_Mesh+2;
 const unsigned int N_Cols = N_Mesh+2;
 
@@ -100,11 +107,7 @@ void Boundary_Conditions(double *U_0) {
 	// Here we are populating the bottom edge of our matrix with a value of 1
 	// The rest of the boundary is given a value of 0
 
-	// Determine dx, dy (spacing between successive gridpoints in the x and y directions)
-	// Note that if there are D_Div grid points in a given direction, then there are
-	// N_Mesh-1 jumps (of size dx) that have to be made to get from X_Min to X_Max
-	double dx = (X_Max - X_Min)/((double)N_Mesh-1.);
-	double dy = (Y_Max - Y_Min)/((double)N_Mesh-1.);
+	// Se up x,y
 	double x,y;
 
 	unsigned int i,j;
@@ -184,10 +187,13 @@ void Update(double *U_k, double *U_kp1) {
 	// Elements of U_kp1.
 	for(i = 1; i < N_Rows-1; i++) {
 		for(j = 1; j < N_Cols-1; j++) {
-			U_kp1[i*(N_Cols) + j] = (1./4.)*( U_k[(i+1)*N_Cols + j    ]  + 
-			                                  U_k[(i-1)*N_Cols + j    ]  + 
-			                                  U_k[i*N_Cols     + (j-1)]  + 
-			                                  U_k[i*N_Cols     + (j+1)]  );
+			U_kp1[i*(N_Cols) + j] = (1./(2.*dx*dx + 2.*dy*dy))*
+			                                  ( (dx*dx)*
+				                              ( U_k[(i+1)*N_Cols + j    ]   + 
+			                                    U_k[(i-1)*N_Cols + j    ])  +
+			                                  (dy*dy) * 
+			                                  ( U_k[i*N_Cols     + (j-1)]   + 
+			                                    U_k[i*N_Cols     + (j+1)]) );
 		} // for(j = 1; j < N_Mesh+1; j++) {
 	} // for(int i = 1; i < N_Mesh+1; i++) {
 } // void Update(double *U_k, double *U_kp1) {

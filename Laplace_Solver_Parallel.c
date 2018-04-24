@@ -15,6 +15,12 @@
 const unsigned int N_Rows = N_Mesh+2;
 const unsigned int N_Cols = N_Mesh+2;
 
+// Determine dx,dy (spacing between successive gridpoints in the x and y directions
+// Note that if there are D_Div grid points in a given direction, then there are
+// N_Mesh-1 jumps (of size dx) that have to be made to get from X_Min to X_Max
+#define dx ((X_Max - X_Min)/((double)N_Mesh-1.))
+#define dy ((Y_Max - Y_Min)/((double)N_Mesh-1.))
+
 // prototypes
 void Initial_Conditions(double *U_0);				// Used to set IC's
 void Boundary_Conditions(double *U_0);				// Used to set BC's
@@ -156,11 +162,7 @@ void Boundary_Conditions(double *U_0) {
 	// Here we are populating the bottom edge of our matrix with a value of 1
 	// The rest of the boundary is given a value of 0
 
-	// Determine dx, dy (spacing between successive gridpoints in the x and y directions)
-	// Note that if there are D_Div grid points in a given direction, then there are
-	// N_Mesh-1 jumps (of size dx) that have to be made to get from X_Min to X_Max
-	double dx = (X_Max - X_Min)/((double)N_Mesh-1.);
-	double dy = (Y_Max - Y_Min)/((double)N_Mesh-1.);
+	// Set up x, y
 	double x,y;
 
 	unsigned int i,j;
@@ -244,10 +246,13 @@ void Update(double *U_k, double *U_kp1) {
 	#pragma omp for schedule(static) private(i,j)
 		for(i = 1; i < N_Rows-1; i++) {
 			for(j = 1; j < N_Cols-1; j++) {
-				U_kp1[i*(N_Cols) + j] = (1./4.)*( U_k[(i+1)*N_Cols + j    ]  + 
-				                                  U_k[(i-1)*N_Cols + j    ]  + 
-				                                  U_k[i*N_Cols     + (j-1)]  + 
-				                                  U_k[i*N_Cols     + (j+1)]  );
+				U_kp1[i*(N_Cols) + j] = (1./(2.*dx*dx + 2.*dy*dy))*
+			                                  ( (dx*dx)*
+				                              ( U_k[(i+1)*N_Cols + j    ]   + 
+			                                    U_k[(i-1)*N_Cols + j    ])  +
+			                                  (dy*dy) * 
+			                                  ( U_k[i*N_Cols     + (j-1)]   + 
+			                                    U_k[i*N_Cols     + (j+1)]) );
 			} // for(j = 1; j < N_Mesh+1; j++) {
 		} // for(int i = 1; i < N_Mesh+1; i++) {
 
