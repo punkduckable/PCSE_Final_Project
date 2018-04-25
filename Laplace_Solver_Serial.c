@@ -5,10 +5,10 @@
 // Paramaters
 #define X_Min -1.
 #define X_Max 1.
-#define Y_Min -3.
-#define Y_Max 3.
+#define Y_Min -1.
+#define Y_Max 1.
 #define PI 3.14159265358979323846
-#define N_Mesh 10
+#define N_Mesh 40
 #define Change_Threshold (.001/(double)N_Mesh)
 
 // Determine dx,dy (spacing between successive gridpoints in the x and y directions
@@ -107,7 +107,7 @@ void Boundary_Conditions(double *U_0) {
 	// Here we are populating the bottom edge of our matrix with a value of 1
 	// The rest of the boundary is given a value of 0
 
-	// Se up x,y
+	// Set up x,y
 	double x,y;
 
 	unsigned int i,j;
