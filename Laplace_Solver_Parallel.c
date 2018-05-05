@@ -10,29 +10,68 @@
 #define Y_Min -1.
 #define Y_Max 1.
 #define PI 3.14159265358979323846
-#define N_Mesh 10
-#define Change_Threshold (.001/(double)N_Mesh)
-const unsigned int N_Rows = N_Mesh+2;
-const unsigned int N_Cols = N_Mesh+2;
-
-// Determine dx,dy (spacing between successive gridpoints in the x and y directions
-// Note that if there are D_Div grid points in a given direction, then there are
-// N_Mesh-1 jumps (of size dx) that have to be made to get from X_Min to X_Max
-#define dx ((X_Max - X_Min)/((double)N_Mesh-1.))
-#define dy ((Y_Max - Y_Min)/((double)N_Mesh-1.))
+#define N_Mesh_per_proc 100
 
 // prototypes
-void Initial_Conditions(double *U_0);				// Used to set IC's
-void Boundary_Conditions(double *U_0);				// Used to set BC's
+void Initial_Conditions(double *U_0, 
+						const int N_Mesh, 
+						const int N_Rows, 
+						const int N_Cols);			// Used to set IC's
+
+void Boundary_Conditions(double *U_0, 
+					     const int N_Mesh, 
+					     const int N_Rows, 
+					     const int N_Cols);			// Used to set BC's
 	double Left_BC(double y);						// BC function for left boundary
 	double Right_BC(double y);						// BC function for right boundary
 	double Top_BC(double y);						// BC function for top boundary
 	double Bottom_BC(double y);						// BC function for bottom boundary
-void Update(double *U_k, double *U_kp1);			// Used to make U^(k+1) from U^(k)
-void Maximum_Change(double *U_k, double *U_kp1, double *Max_Change);	// Calculates average change at meshpoints
-void Save_To_File(double *U_k);						// Saves the result in a file.
-	
+
+void Update(double *U_k, 
+			double *U_kp1,
+			const int N_Mesh,
+			const int N_Rows,
+			const int N_Cols);						// Used to make U^(k+1) from U^(k)
+
+void Maximum_Change(double *U_k, 
+					double *U_kp1, 
+					double *Max_Change,
+					const double Change_Threshold, 
+					const int N_Mesh, 
+					const int N_Rows, 
+					const int N_Cols);				// Calculates average change at meshpoints
+
+void Save_To_File(double *U_k, 
+				  const int N_Mesh, 
+				  const int N_Rows, 
+				  const int N_Cols);				// Saves the result in a file.
+
+int Is_Square(int n_procs);	
+
 int main() {
+	///////////////////////////////////////////////////////////////////////////
+	// Set up mesh variables
+	int n_procs, N_Mesh, N_Rows, N_Cols; 
+	double Change_Threshold;
+
+	// First, make sure that we have a square number of procs.
+	// To do weak scaling on a square domain, the number of procs must be a 
+	// square number. Thus, we first check if the number of procs is a square number
+	n_procs = omp_get_max_threads();
+
+	if(!Is_Square(n_procs)) {
+		printf("Number of procs must be a square number.\n Exiting\n");
+		return 0;
+	} // if(!is_Square(n_procs)) {
+
+	// Next, establish N_Mesh (number of mesh points in a given direction)
+	N_Mesh = N_Mesh_per_proc*((int)sqrt(n_procs));
+
+	// Use N_Mesh to set up Change_Threshold, N_Rows, N_Cols
+	Change_Threshold = .001/((double)N_Mesh);
+	N_Rows = N_Mesh+2;
+	N_Cols = N_Mesh+2;
+
 	///////////////////////////////////////////////////////////////////////////
 	// Set up variables
 	double timer, runtime_timer;
@@ -58,14 +97,10 @@ int main() {
 
 	t_Alloc = omp_get_wtime() - timer;
 
-	// Parallel variables
-	int n_procs = omp_get_max_threads();
-	//omp_set_num_threads(n_procs);
-
 	// Start runtim timer
 	runtime_timer = omp_get_wtime();
 
-	#pragma omp parallel default(none) firstprivate(n_procs, N_Cols, N_Rows) shared(iterations, Max_Change, U_k, U_kp1,t_Alloc, t_IC, t_BC, t_Iter, t_Save, timer)
+	#pragma omp parallel default(none) firstprivate(n_procs, N_Mesh, N_Cols, N_Rows, Change_Threshold) shared(iterations, Max_Change, U_k, U_kp1,t_Alloc, t_IC, t_BC, t_Iter, t_Save, timer, runtime_timer)
 	{
 
 		// Set up initial conditions, boundary conditions. Note that we run the
@@ -74,13 +109,13 @@ int main() {
 
 		#pragma omp master
 		{ timer = omp_get_wtime(); }
-		Initial_Conditions(U_kp1); 
+		Initial_Conditions(U_kp1, N_Mesh, N_Rows, N_Cols); 
 		#pragma omp master
 		{ t_IC = omp_get_wtime() - timer; }
 
 		#pragma omp master
 		{ timer = omp_get_wtime(); }
-		Boundary_Conditions(U_k);
+		Boundary_Conditions(U_k, N_Mesh, N_Rows, N_Cols);
 		#pragma omp master
 		{ t_BC = omp_get_wtime() - timer; }
 
@@ -93,10 +128,10 @@ int main() {
 
 		while(Max_Change > Change_Threshold) {
 			// Perform next iteration
-			Update(U_k, U_kp1);
+			Update(U_k, U_kp1, N_Mesh, N_Rows, N_Cols);
 
 			// Find maximum change from this iteration
-			Maximum_Change(U_k, U_kp1, &Max_Change);
+			Maximum_Change(U_k, U_kp1, &Max_Change, Change_Threshold, N_Mesh, N_Rows, N_Cols);
 
 			// Incremeent number of iterations
 			#pragma omp master
@@ -105,7 +140,7 @@ int main() {
 		
 		// Update once more, We do this so that u_kp1 from the final iteration
 		// is moved to the U_k matrix.
-		Update(U_k, U_kp1);
+		Update(U_k, U_kp1, N_Mesh, N_Rows, N_Cols);
 
 		#pragma omp master
 		{ t_Iter = omp_get_wtime() - timer; }
@@ -114,11 +149,12 @@ int main() {
 		#pragma omp master 
 		{
 			timer = omp_get_wtime();
-			Save_To_File(U_k);
+			Save_To_File(U_k, N_Mesh, N_Rows, N_Cols);
 			t_Save = omp_get_wtime() - timer;
 		} // #pragma omp master 
 
-	} // #pragma omp parallel default(none) firstprivate(n_procs, N_Cols, N_Rows) shared(iterations, Max_Change, U_k, U_kp1,t_Alloc, t_IC, t_BC, t_Iter, t_Save, timer)
+	} // #pragma omp parallel default(none) firstprivate(n_procs, N_Mesh, N_Cols, N_Rows, Change_Threshold) shared(iterations, Max_Change, U_k, U_kp1,t_Alloc, t_IC, t_BC, t_Iter, t_Save, timer, runtime_timer)
+
 
 	// Stop runtime timer
 	t_runtime = omp_get_wtime() - runtime_timer;
@@ -127,7 +163,8 @@ int main() {
 	printf("\t\t -- Paramaters --\n\n");
 	printf("Number of procs              ::    %d\n",omp_get_num_procs());
 	printf("Number of threads            ::    %d\n",omp_get_max_threads());
-	printf("Number of meshpoints         ::    %d\n",N_Mesh);
+	printf("Total meshpoints             ::    %d\n",N_Mesh);
+	printf("Elements per thread          ::    %d\n",((N_Mesh*N_Mesh)/(n_procs));
 	printf("Change threshold             ::    %f\n",Change_Threshold);
 	printf("Number of iterations needed  ::    %d\n",iterations);
 	printf("\n\t\t -- Timing data --\n\n");
@@ -141,7 +178,7 @@ int main() {
 	return 0;
 } // int main()
 
-void Initial_Conditions(double *U_0) {
+void Initial_Conditions(double *U_0, const int N_Mesh, const int N_Rows, const int N_Cols) {
 	// Here, we populate the interior elements of the U_0 matrix.
 	// We do not populate the boundary elements, since these are
 	// taken care of by the boundary conditions. Finally, recall that
@@ -157,9 +194,9 @@ void Initial_Conditions(double *U_0) {
 				U_0[i*N_Cols + j] = 0;
 			} // for(j = 0; j < N_Cols; j++) {
 		} // for(i = 0; i < N_Rows; i++) {
-} // void Initial_Conditions(double *U_k) {
+} // void Initial_Conditions(double *U_k, const int N_Mesh, const int N_Rows, const int N_Cols) {
 
-void Boundary_Conditions(double *U_0) {
+void Boundary_Conditions(double *U_0, const int N_Mesh, const int N_Rows, const int N_Cols) {
 	// Here we populate the boundary elements of U_0. 
 	// This function can make use of X_Max, X_Min, Y_Max, and Y_Min you
 	// want to use a function to define the boundary.
@@ -172,6 +209,12 @@ void Boundary_Conditions(double *U_0) {
 
 	// Set up x, y
 	double x,y;
+
+	// Determine dx,dy (spacing between successive gridpoints in the x and y directions
+	// Note that if there are D_Div grid points in a given direction, then there are
+	// N_Mesh-1 jumps (of size dx) that have to be made to get from X_Min to X_Max
+	const double dx =  ((X_Max - X_Min)/((double)N_Mesh-1.));
+	const double dy = ((Y_Max - Y_Min)/((double)N_Mesh-1.));
 
 	unsigned int i,j;
 
@@ -206,7 +249,7 @@ void Boundary_Conditions(double *U_0) {
 			//  N_Mesh+1 rows each row has has N_Cols columns
 			U_0[(N_Rows-1)*(N_Cols) + i] = Bottom_BC(x);
 		} // for(i = 1; i < N_Mesh+1; i+=) {
-} // void Boundary_Conditions(double *U_0) {
+} // void Boundary_Conditions(double *U_0, const int N_Mesh, const int N_Rows, const int N_Cols) 
 
 double Left_BC(double y) {
 	// This function us used to set the left boundary condition function.
@@ -237,7 +280,14 @@ double Bottom_BC(double x) {
 } // double Bottom_BC(double y) {
 
 
-void Update(double *U_k, double *U_kp1) {
+void Update(double *U_k, double *U_kp1, const int N_Mesh, const int N_Rows, const int N_Cols) {
+	// Determine dx,dy (spacing between successive gridpoints in the x and y directions
+	// Note that if there are D_Div grid points in a given direction, then there are
+	// N_Mesh-1 jumps (of size dx) that have to be made to get from X_Min to X_Max
+	const double dx =  ((X_Max - X_Min)/((double)N_Mesh-1.));
+	const double dy = ((Y_Max - Y_Min)/((double)N_Mesh-1.));
+
+
 	// First, we need to move the elements of U_kp1 over to U_k (since we have begin
 	// the next step)
 	unsigned int i,j;
@@ -264,9 +314,9 @@ void Update(double *U_k, double *U_kp1) {
 			} // for(j = 1; j < N_Mesh+1; j++) {
 		} // for(int i = 1; i < N_Mesh+1; i++) {
 
-} // void Update(double *U_k, double *U_kp1) {
+} // void Update(double *U_k, double *U_kp1, const int N_Mesh, const int N_Rows, const int N_Cols) {
 
-void Maximum_Change(double *U_k, double *U_kp1, double *Max_Change) {
+void Maximum_Change(double *U_k, double *U_kp1, double *Max_Change, const double Change_Threshold, const int N_Mesh, const int N_Rows, const int N_Cols) {
 	// This finds the maximum change the value of u betweek the kth and 
 	// k+1th itteration. This is done by finding the maximum value of 
 	// abs(U_k(i,j) - U_kp1(i,j)) for all interior elements. 
@@ -299,9 +349,9 @@ void Maximum_Change(double *U_k, double *U_kp1, double *Max_Change) {
 	} // #pragma omp critical
 	#pragma omp barrier
 
-} // void Avg_Cange(double *U_k, double *U_kp1, double *Max_Change) {
+} // void Avg_Cange(double *U_k, double *U_kp1, double *Max_Change, const double Change_Threshold, const int N_Mesh, const int N_Rows, const int N_Cols) {
 
-void Save_To_File(double *U_k) {
+void Save_To_File(double *U_k, const int N_Mesh, const int N_Rows, const int N_Cols) {
 	// This function saves the results to a matrix.
 
 	// First, open our new file
@@ -320,3 +370,14 @@ void Save_To_File(double *U_k) {
 	}
 	fclose(Results);
 } // void Print_Matrix(double *Mat, unsigned int num_rows, unsigned int num_cols) {
+
+int Is_Square(int n_procs) {
+	int i, root = floor(sqrt(n_procs));
+
+	if( root*root == n_procs) {
+		return 1;
+	} // 	if( root*root == n_procs) {
+	else {
+		return 0;
+	} // else {
+} // 	int Is_Square(int n_procs) {
