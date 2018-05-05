@@ -35,7 +35,8 @@ void Save_To_File(double *U_k);						// Saves the result in a file.
 int main() {
 	///////////////////////////////////////////////////////////////////////////
 	// Set up variables
-	double timer, t_Alloc, t_IC, t_BC, t_Iter, t_Save;
+	double timer, runtime_timer;
+	double t_Alloc, t_IC, t_BC, t_Iter, t_Save, t_runtime;
 
 	double Max_Change = 1;
 	int iterations = 0;
@@ -58,8 +59,11 @@ int main() {
 	t_Alloc = omp_get_wtime() - timer;
 
 	// Parallel variables
-	int n_procs = omp_get_num_procs();
-	omp_set_num_threads(n_procs;
+	int n_procs = omp_get_max_threads();
+	//omp_set_num_threads(n_procs);
+
+	// Start runtim timer
+	runtime_timer = omp_get_wtime();
 
 	#pragma omp parallel default(none) firstprivate(n_procs, N_Cols, N_Rows) shared(iterations, Max_Change, U_k, U_kp1,t_Alloc, t_IC, t_BC, t_Iter, t_Save, timer)
 	{
@@ -116,19 +120,23 @@ int main() {
 
 	} // #pragma omp parallel default(none) firstprivate(n_procs, N_Cols, N_Rows) shared(iterations, Max_Change, U_k, U_kp1,t_Alloc, t_IC, t_BC, t_Iter, t_Save, timer)
 
+	// Stop runtime timer
+	t_runtime = omp_get_wtime() - runtime_timer;
+
 	// Print timing results
 	printf("\t\t -- Paramaters --\n\n");
-	printf("Number of procs              ::\t %d\n",omp_get_num_procs());
-	printf("Number of threads            ::\t %d\n",omp_get_max_threads());
-	printf("Number of meshpoints         ::\t %d\n",N_Mesh);
-	printf("Change threshold             ::\t %f\n",Change_Threshold);
-	printf("Number of iterations needed  ::\t %d\n",iterations);
+	printf("Number of procs              ::    %d\n",omp_get_num_procs());
+	printf("Number of threads            ::    %d\n",omp_get_max_threads());
+	printf("Number of meshpoints         ::    %d\n",N_Mesh);
+	printf("Change threshold             ::    %f\n",Change_Threshold);
+	printf("Number of iterations needed  ::    %d\n",iterations);
 	printf("\n\t\t -- Timing data --\n\n");
-	printf("Time to alloc U_k,U_kp1      ::\t %.2e (s)\n",t_Alloc);
-	printf("Time to set IC's             ::\t %.2e (s)\n",t_IC);
-	printf("Time to set BC's             ::\t %.2e (s)\n",t_BC);
-	printf("Time for iterations          ::\t %.2e (s)\n",t_Iter);
-	printf("Time to save to file         ::\t %.2e (s)\n",t_Save);
+	printf("Time to alloc U_k,U_kp1      ::    %.2e (s)\n",t_Alloc);
+	printf("Time to set IC's             ::    %.2e (s)\n",t_IC);
+	printf("Time to set BC's             ::    %.2e (s)\n",t_BC);
+	printf("Time for iterations          ::    %.2e (s)\n",t_Iter);
+	printf("Time to save to file         ::    %.2e (s)\n",t_Save);
+	printf("Total runtime                ::    %.2e (s)\n",t_runtime);
 
 	return 0;
 } // int main()
