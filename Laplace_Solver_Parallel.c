@@ -164,7 +164,7 @@ int main() {
 	printf("Number of procs              ::    %d\n",omp_get_num_procs());
 	printf("Number of threads            ::    %d\n",omp_get_max_threads());
 	printf("Total meshpoints             ::    %d\n",N_Mesh);
-	printf("Elements per thread          ::    %d\n",((N_Mesh*N_Mesh)/(n_procs));
+	printf("Elements per thread          ::    %d\n",((N_Mesh*N_Mesh)/(n_procs)));
 	printf("Change threshold             ::    %f\n",Change_Threshold);
 	printf("Number of iterations needed  ::    %d\n",iterations);
 	printf("\n\t\t -- Timing data --\n\n");
