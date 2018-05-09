@@ -9,7 +9,7 @@
 #define Y_Min -1.
 #define Y_Max 1.
 #define PI 3.14159265358979323846
-#define N_Mesh 200
+#define N_Mesh 500
 #define Change_Threshold (.001/(double)N_Mesh)
 const unsigned int N_Rows = N_Mesh+2;
 const unsigned int N_Cols = N_Mesh+2;
@@ -34,8 +34,8 @@ void Save_To_File(double *U_k);						// Saves the result in a file.
 int main() {
 	///////////////////////////////////////////////////////////////////////////
 	// Set up timing variables
-	clock_t timer;
-	float t_Alloc, t_IC, t_BC, t_Iter, t_Save;
+	clock_t timer, runtime_timer;
+	float t_Alloc, t_IC, t_BC, t_Iter, t_Save, t_runtime;
 
 	///////////////////////////////////////////////////////////////////////////
 	// Allocation and initlaization: 	
@@ -47,6 +47,7 @@ int main() {
 	// to make access more intuitive. 
 	double *U_k, *U_kp1;
 
+	runtime_timer = clock();
 	timer = clock();
 
 	U_k = (double *)malloc(sizeof(double)*(N_Mesh+2)*(N_Mesh+2));
@@ -99,18 +100,20 @@ int main() {
 	Save_To_File(U_k);
 	t_Save = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
 
+	t_runtime = ((float)(clock() - runtime_timer))/((float)CLOCKS_PER_SEC);
 
 	// Print timing results
 	printf("\t\t -- Paramaters --\n\n");
-	printf("Number of meshpoints         ::\t %d\n",N_Mesh);
-	printf("Change threshold             ::\t %f\n",Change_Threshold);
-	printf("Number of iterations needed  ::\t %d\n",iterations);
+	printf("Number of meshpoints         ::    %d\n",N_Mesh);
+	printf("Change threshold             ::    %f\n",Change_Threshold);
+	printf("Number of iterations needed  ::    %d\n",iterations);
 	printf("\n\t\t -- Timing data --\n\n");
-	printf("Time to alloc U_k,U_kp1      ::\t %.2e (s)\n",t_Alloc);
-	printf("Time to set IC's             ::\t %.2e (s)\n",t_IC);
-	printf("Time to set BC's             ::\t %.2e (s)\n",t_BC);
-	printf("Time for iterations          ::\t %.2e (s)\n",t_Iter);
-	printf("Time to save to file         ::\t %.2e (s)\n",t_Save);
+	printf("Time to alloc U_Odd,U_Even   ::    %.2e (s)\n",t_Alloc);
+	printf("Time to set IC's             ::    %.2e (s)\n",t_IC);
+	printf("Time to set BC's             ::    %.2e (s)\n",t_BC);
+	printf("Time for iterations          ::    %.2e (s)\n",t_Iter);
+	printf("Time to save to file         ::    %.2e (s)\n",t_Save);
+	printf("Total runtime                ::    %.2e (s)\n",t_runtime);
 
 	return 0;
 } // int main()
