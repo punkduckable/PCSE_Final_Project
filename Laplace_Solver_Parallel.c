@@ -68,7 +68,7 @@ int main() {
 	N_Mesh = N_Mesh_per_proc*((int)sqrt(n_procs));
 
 	// Use N_Mesh to set up Change_Threshold, N_Rows, N_Cols
-	Change_Threshold = .001/((double)N_Mesh);
+	Change_Threshold = .5/((double)(N_Mesh*N_Mesh));
 	N_Rows = N_Mesh+2;
 	N_Cols = N_Mesh+2;
 
