@@ -10,7 +10,7 @@
 #define Y_Max 1.
 #define PI 3.14159265358979323846
 #define N_Mesh 500
-#define Change_Threshold (.001/(double)N_Mesh)
+#define Change_Threshold (.5/(double)(N_Mesh*N_Mesh))
 const unsigned int N_Rows = N_Mesh+2;
 const unsigned int N_Cols = N_Mesh+2;
 
@@ -27,10 +27,11 @@ void Boundary_Conditions(double *U_0);				// Used to set BC's
 	double Right_BC(double y);						// BC function for right boundary
 	double Top_BC(double y);						// BC function for top boundary
 	double Bottom_BC(double y);						// BC function for bottom boundary
-void Update(double *U_k, double *U_kp1);			// Used to make U^(k+1) from U^(k)
-double Maximum_Change(double *U_k, double *U_kp1);	// Calculates average change at meshpoints
+void Update(double *U_Odd, double *U_Even, int Iter);		// Used to make U^(k+1) from U^(k)
+double Maximum_Change(double *U_Odd, double *U_Even);	// Calculates average change at meshpoints
 void Save_To_File(double *U_k);						// Saves the result in a file.
-	
+
+
 int main() {
 	///////////////////////////////////////////////////////////////////////////
 	// Set up timing variables
@@ -38,34 +39,42 @@ int main() {
 	float t_Alloc, t_IC, t_BC, t_Iter, t_Save, t_runtime;
 
 	///////////////////////////////////////////////////////////////////////////
-	// Allocation and initlaization: 	
+	// Allocation and Initialization: 	
 
-	// Allocate U_k and U_kp1 array. U_k will store the values for u^(k). 
-	// During the update cycle this array will be read only. U_kp1 stores the 
-	// values for U^(k+1). We make U_k of dimension (N_Mesh+2)x(N_Mesh+2)
-	// So that we can include boundary elements. We also make U_kp1 the same size
-	// to make access more intuitive. 
-	double *U_k, *U_kp1;
+	// Allocate U_Odd and U_Even array. These will store the value of u^(k) for
+	// successive iterations. As their names would suggest, U_Odd is used to store
+	// Odd iterations while U_Even is used to store even iterations. 
+	// In general, if k is odd U^(k+1) is stored in U_Odd and calculated from U_Even
+	// (which should be storing U^(k)). Likewise, if k is even then U^(k+1) is 
+	// stored in U_Even and calculated from U_Odd (which should be storing U^(k)).
+	// Each array is populated with the boundary conditions (since we will be using
+	// Both matricies to update). Only U_Even is set up with initial conditions 
+	// This is because the first iteration will be for iter = 1, meaning that the
+	// 1st iteration is stored in U_Odd and calulated from U_Even.
+	double *U_Even, *U_Odd;
 
 	runtime_timer = clock();
 	timer = clock();
 
-	U_k = (double *)malloc(sizeof(double)*(N_Mesh+2)*(N_Mesh+2));
-	U_kp1 = (double *)malloc(sizeof(double)*(N_Mesh+2)*(N_Mesh+2));
+	U_Odd = (double *)malloc(sizeof(double)*(N_Mesh+2)*(N_Mesh+2));
+	U_Even = (double *)malloc(sizeof(double)*(N_Mesh+2)*(N_Mesh+2));
 
 	t_Alloc = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
 
 
-	// Set up initial conditions, boundary conditions. Note that we run the
-	// Initial conditions on U_kp1 because Update first moves the interior
-	// elements of U_kp1 to U_k (see update function)
+		// Set up initial conditions, boundary conditions. Note that we run the
+		// Initial conditions on U_Even because Update first moves the interior
+		// elements of U_Even to U_Odd (see update function). By contrast, we
+		// need BC's on both U_Odd and U_Even because both will be used to 
+		// calculate updated iterations
 
 	timer = clock();
-	Initial_Conditions(U_kp1); 
+	Initial_Conditions(U_Even); 
 	t_IC = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
 
 	timer = clock();
-	Boundary_Conditions(U_k);
+	Boundary_Conditions(U_Even);
+	Boundary_Conditions(U_Odd);
 	t_BC = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
 
 
@@ -74,30 +83,35 @@ int main() {
 
 	// Update matrix until Maximum change falls below threshold
 	double Max_Change = 1;
-	int iterations = 0;
+	int Iter = 0;
 
 	timer = clock();
 
-	while(Max_Change > Change_Threshold) {
+	do {
+		// Increment number of iterations 
+		Iter++;
+
 		// Perform next iteration
-		Update(U_k, U_kp1);
+		Update(U_Odd, U_Even, Iter);
 
 		// Find maximum change from this iteration
-		Max_Change = Maximum_Change(U_k, U_kp1);
-
-		// Incremeent number of iterations
-		iterations++;
-	} // while(Max_Change > Change_Threshold) {
-	
-	// Update once more, We do this so that u_kp1 from the final iteration
-	// is moved to the U_k matrix.
-	Update(U_k, U_kp1);
+		Max_Change = Maximum_Change(U_Odd, U_Even);
+	} while(Max_Change > Change_Threshold);
 
 	t_Iter = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
 
-	// Save results
+	// Save results (Note, which matrix U^(k+1) is stored in depends on
+	// the value of Iter)
 	timer = clock();
-	Save_To_File(U_k);
+	// If an Even number of iterations occured, U^(k+1) is in U_Even
+	if(Iter%2 == 0) {
+		Save_To_File(U_Even);
+	} // if(Iter%2 == 0) {
+
+	// Otherwise, U^(k+1) is stored in U_Odd
+	else {
+		Save_To_File(U_Odd);
+	} // else
 	t_Save = (float)((clock() - timer)/((float)CLOCKS_PER_SEC));
 
 	t_runtime = ((float)(clock() - runtime_timer))/((float)CLOCKS_PER_SEC);
@@ -106,7 +120,7 @@ int main() {
 	printf("\t\t -- Paramaters --\n\n");
 	printf("Number of meshpoints         ::    %d\n",N_Mesh);
 	printf("Change threshold             ::    %f\n",Change_Threshold);
-	printf("Number of iterations needed  ::    %d\n",iterations);
+	printf("Number of iterations needed  ::    %d\n",Iter);
 	printf("\n\t\t -- Timing data --\n\n");
 	printf("Time to alloc U_Odd,U_Even   ::    %.2e (s)\n",t_Alloc);
 	printf("Time to set IC's             ::    %.2e (s)\n",t_IC);
@@ -122,7 +136,7 @@ void Initial_Conditions(double *U_0) {
 	// Here, we populate the interior elements of the U_0 matrix.
 	// We do not populate the boundary elements, since these are
 	// taken care of by the boundary conditions. Finally, recall that
-	// U_K and U_kp1 are both of dimension N_Mesh+2. Therefore, the
+	// U_Even and U_Odd are both of dimension N_Mesh+2. Therefore, the
 	// Interior elements have indicies 1,2,...N_Mesh.
 
 	// For simplicity, we will populate the interior elements with a value of 0
@@ -133,7 +147,7 @@ void Initial_Conditions(double *U_0) {
 			U_0[i*N_Cols + j] = 0;
 		} // for(j = 0; j < N_Cols; j++) {
 	} // for(i = 0; i < N_Rows; i++) {
-} // void Initial_Conditions(double *U_k) {
+} // void Initial_Conditions(double *U_0) {
 
 void Boundary_Conditions(double *U_0) {
 	// Here we populate the boundary elements of U_0. 
@@ -211,16 +225,23 @@ double Bottom_BC(double x) {
 } // double Bottom_BC(double y) {
 
 
-void Update(double *U_k, double *U_kp1) {
-	// First, we need to move the elements of U_kp1 over to U_k (since we have begin
-	// the next step)
+void Update(double *U_Odd, double *U_Even, int Iter) {
 	unsigned int i,j;
-	for(i = 1; i < N_Rows-1; i++) {
-		for(j = 1; j < N_Cols-1; j++) {
-			U_k[i*(N_Cols) + j] = U_kp1[i*(N_Cols) + j];
-		} // for(j = 1; j < N_Mesh+1; j++) {
-	} // for(int i = 1; i < N_Mesh+1; i++) {
+	double *U_k, *U_kp1;
 
+	// If Iter is odd, then U_Odd is U^(k+1) and U_Even is U^(k). 
+	// Thus, want to build U_Odd from U_Even 
+	if( Iter%2 == 1) {
+		U_kp1 = U_Odd;
+		U_k = U_Even;
+	} // 	if( Iter%2 == 1) {
+
+	// If Iter is Even, then U_Even is U^(k+1) and U_Odd is U^(k). 
+	// Thus, want to build U_Even from U_Odd
+	else {
+		U_kp1 = U_Even;
+		U_k = U_Odd;
+	} // else 
 
 	// Now, calculate the new U^(k+1) values, store them in the interior
 	// Elements of U_kp1.
@@ -233,21 +254,24 @@ void Update(double *U_k, double *U_kp1) {
 			                                  (dy*dy) * 
 			                                  ( U_k[i*N_Cols     + (j-1)]   + 
 			                                    U_k[i*N_Cols     + (j+1)]) );
-		} // for(j = 1; j < N_Mesh+1; j++) {
-	} // for(int i = 1; i < N_Mesh+1; i++) {
-} // void Update(double *U_k, double *U_kp1) {
+		} // for(j = 1; j < N_Rows-1; j++) {
+	} // for(int i = 1; i < N_Cols-1; i++) {
+} // void Update(double *U_Odd, double *U_Even, int Iter) {
 
-double Maximum_Change(double *U_k, double *U_kp1) {
-	// This finds the maximum change the value of u betweek the kth and 
+double Maximum_Change(double *U_Odd, double *U_Even) {
+// This finds the maximum change the value of u betweek the kth and 
 	// k+1th itteration. This is done by finding the maximum value of 
-	// abs(U_k(i,j) - U_kp1(i,j)) for all interior elements. 
+	// abs(U_Odd(i,j) - U_Even(i,j)) for all interior elements. 
+	// It should be noted that we don't need to know which one corresonds
+	// to U^(kp1) vs U^(k) since we are finding the absolute value of the
+	// difference between each cell of the two matricies.
 
 	double Max_Change = 0;
 	double Current_MeshPoint_Change;
 	unsigned int i,j;
 	for(i = 1; i < N_Rows-1; i++) {
 		for(j = 1; j < N_Cols-1; j++) {
-			Current_MeshPoint_Change = fabs(U_k[i*N_Cols + j] - U_kp1[i*N_Cols+j]);
+			Current_MeshPoint_Change = fabs(U_Odd[i*N_Cols + j] - U_Even[i*N_Cols+j]);
 
 			if (Current_MeshPoint_Change > Max_Change) {
 				Max_Change = Current_MeshPoint_Change;
@@ -256,7 +280,7 @@ double Maximum_Change(double *U_k, double *U_kp1) {
 	} // for(i = 1; i < N_Rows-1; i++) {
 
 	return Max_Change;
-} // double Avg_Cange(double *U_k, double *U_kp1) {
+} // double Avg_Cange(double *U_Odd, double *U_Even) {
 
 void Save_To_File(double *U_k) {
 	// This function saves the results to a matrix.

@@ -75,7 +75,9 @@ int main() {
 
 		// Set up initial conditions, boundary conditions. Note that we run the
 		// Initial conditions on U_Even because Update first moves the interior
-		// elements of U_Even to U_Odd (see update function)
+		// elements of U_Even to U_Odd (see update function). By contrast, we
+		// need BC's on both U_Odd and U_Even because both will be used to 
+		// calculate updated iterations
 
 		#pragma omp master
 		{ timer = omp_get_wtime(); }

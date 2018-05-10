@@ -20,11 +20,13 @@ y = linspace(y_min, y_max, Rows);
 
 % Create a meshgrid. This will be used to plot the results
 [X,Y] = meshgrid(x,y);
-
+s
 % Plot as a surface
 figure(1);
 clf;
-surf(X,Y,U_k);
+grid off;
+p = surf(X,Y,U_k);
+    set(p,'linestyle','none');
     xlabel('X');
     ylabel('Y');
     title(['Laplace solver with a ',num2str(Rows),'x',num2str(Cols),' grid.'])
