@@ -9,7 +9,7 @@
 #define Y_Max 1.
 #define PI 3.14159265358979323846
 #define N_Mesh 40
-#define Change_Threshold (.001/(double)N_Mesh)
+#define Change_Threshold (.5/(double)(N_Mesh*N_Mesh))
 
 // Determine dx,dy (spacing between successive gridpoints in the x and y directions
 // Note that if there are D_Div grid points in a given direction, then there are
