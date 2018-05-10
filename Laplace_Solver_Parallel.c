@@ -42,7 +42,7 @@ int main() {
 	int Iter = 0;									// This is the iteration counter
 
 	///////////////////////////////////////////////////////////////////////////
-	// Allocation and initlaization: 	
+	// Allocation and Iterations: 	
 
 	// Allocate U_Odd and U_Even array. These will store the value of u^(k) for
 	// successive iterations. As their names would suggest, U_Odd is used to store
