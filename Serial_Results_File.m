@@ -20,7 +20,7 @@ y = linspace(y_min, y_max, Rows);
 
 % Create a meshgrid. This will be used to plot the results
 [X,Y] = meshgrid(x,y);
-s
+
 % Plot as a surface
 figure(1);
 clf;
